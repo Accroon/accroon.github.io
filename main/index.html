@@ -1,0 +1,1095 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>accroo — Downloads</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+
+    /* thin coating that gets scratched off */
+.scratch-canvas{
+  position:absolute; inset:0;
+  pointer-events:none;          /* mouse goes to the button, not canvas */
+  opacity:.95;                  /* looks like a coating */
+  transition: opacity .25s ease;
+  border-radius: inherit;
+}
+.scratch-fade-out{ opacity:0 }  /* fade when leaving */
+
+
+
+    :root{
+      --bg:#090909;
+      --panel:#111113;
+      --border:#262628;
+      --muted:#b6b6b6;
+
+      --red:#ff3b3b;      --red-2:#ff6767;
+      --green:#2bdc7b;    --green-2:#62f0a3;
+      --orange:#ff8a3b;   --orange-2:#ffb36e;
+      --blue:#5aa9ff;     --blue-2:#9dc6ff;
+      --yellow:#f0e774;     --yellow-2:#dbd82f;
+
+      --glow: 0 8px 26px rgba(98,240,163,.18);
+      --glow-strong: 0 18px 60px rgba(98,240,163,.28);
+      --radius: 18px;
+
+      /* make the pop a bit stronger & slower */
+      --lift: -14px;
+      --scale: 1.06;
+      --hover-ease: cubic-bezier(.16,1,.3,1);
+    }
+
+    * { box-sizing:border-box }
+    html, body { height:100% }
+    body{
+      margin:0; color:#fff; background:var(--bg);
+      font-family: "Rajdhani", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      line-height:1.35;
+      overflow-y: auto;
+    }
+
+    /* === Animated backdrop === */
+    .backdrop{
+      position:fixed; inset:0; pointer-events:none; z-index:-2;
+      background: radial-gradient(1200px 800px at 15% 20%, rgba(255,59,59,.04), transparent 60%),
+                  radial-gradient(900px 600px at 85% 15%, rgba(42,220,123,.04), transparent 60%),
+                  radial-gradient(700px 600px at 30% 90%, rgba(90,169,255,.04), transparent 60%),
+                  linear-gradient(180deg, #0a0a0a 0%, #0b0b0b 100%);
+      filter: saturate(120%);
+      animation: floatBg 20s linear infinite alternate;
+    }
+    @keyframes floatBg{ from{transform:translate3d(0,0,0)} to{transform:translate3d(0,-20px,0)} }
+
+    .stars, .stars2{
+      position:fixed; inset:-200px -200px; z-index:-1; pointer-events:none;
+      background-image:
+        radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.8), rgba(255,255,255,0)),
+        radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,255,255,.7), rgba(255,255,255,0)),
+        radial-gradient(1.5px 1.5px at 40% 80%, rgba(255,255,255,.6), rgba(255,255,255,0)),
+        radial-gradient(2px 2px at 80% 20%, rgba(255,255,255,.8), rgba(255,255,255,0)),
+        radial-gradient(1px 1px at 50% 50%, rgba(255,255,255,.6), rgba(255,255,255,0));
+      background-repeat: repeat;
+      background-size: 800px 800px;
+      opacity:.45;
+      transform: translateZ(0);
+      will-change: transform;
+      animation: drift 140s linear infinite;
+    }
+    .stars2{ opacity:.25; animation-duration: 200s; }
+    @keyframes drift{ from{ transform:translate3d(0,0,0) } to{ transform:translate3d(-400px,-300px,0) } }
+
+    header{
+      max-width:1100px; margin: clamp(16px,4vw,36px) auto 12px; padding: 0 20px;
+    }
+    .brand{
+      font: 800 clamp(28px,5.2vw,52px) "Orbitron", sans-serif;
+      letter-spacing:.5px; margin:0 0 6px;
+      background: linear-gradient(90deg, #fff, #bbb);
+      -webkit-background-clip: text; background-clip:text; color:transparent;
+      text-shadow: 0 0 20px rgba(255,255,255,0.05);
+    }
+    .tag{ margin:0; color:var(--muted); font-size:clamp(14px,2.3vw,18px) }
+
+    .toolbar{
+      display:flex; gap:10px; align-items:center; margin:14px 0 0; flex-wrap: wrap;
+    }
+    .chip{
+      padding:8px 12px; border:1px solid var(--border); border-radius:999px;
+      background:#121214; color:#ddd; font-weight:700; font-size:14px; letter-spacing:.2px;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,.25));
+    }
+
+    /* sticky header on scroll */
+    .sticky-shadow{
+      position: sticky; top: 0; backdrop-filter: blur(6px);
+      background: linear-gradient(180deg, rgba(10,10,10,.75), rgba(10,10,10,.35));
+      padding: 10px 20px; border-bottom: 1px solid rgba(38,38,40,.6);
+      z-index: 20; transform: translateY(-100%); transition: transform .25s ease;
+    }
+    .sticky-shadow.show{ transform: translateY(0) }
+
+    /* grid */
+    .grid{
+      align-items: flex-start;   /* <- key line for flex (no harm if grid) */
+      align-content: flex-start; /* for multi-row flex */
+      max-width:1100px; margin:18px auto 48px; padding: 0 20px 40px;
+      display:grid; gap:16px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      perspective: 1000px;
+    }
+
+    /* === CARD === */
+    .card{
+      position:relative;
+      background: linear-gradient(180deg, #141417, #0e0f12);
+      border-radius: var(--radius);
+      padding:18px; min-height:170px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.28);
+
+      /* reveal start */
+      opacity:0;
+      transform: translateY(18px) scale(.995);
+
+      /* transform drivers */
+      --liftY: 0px;
+      --scaleCard: 1;
+      --rx: 0deg;
+      --ry: 0deg;
+
+      transition:
+        transform .95s var(--hover-ease),
+        box-shadow .95s var(--hover-ease),
+        color .35s ease,
+        border-color .4s ease,
+        opacity .65s ease;
+      transform-style: preserve-3d;
+      will-change: transform, box-shadow, opacity;
+      outline: 1px solid rgba(255,255,255,0.02);
+    }
+
+    /* apply combined transform via vars */
+    .card,
+    .card.tilted{
+      transform:
+        translateY(var(--liftY))
+        scale(var(--scaleCard))
+        rotateX(var(--rx))
+        rotateY(var(--ry));
+    }
+
+    /* glow ring */
+    .card::before{
+      content:""; position:absolute; inset: -1px; border-radius: inherit; z-index:-1;
+      background: conic-gradient(from 140deg,
+        rgba(43,220,123,.45), rgba(90,169,255,.35), rgba(255,138,59,.35), rgba(43,220,123,.45));
+      filter: blur(24px) saturate(120%);
+      opacity:.0; transition: opacity .9s var(--hover-ease);
+    }
+
+    /* inner stroke */
+    .card::after{
+      content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+      border:1px solid rgba(255,255,255,.06);
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      padding:1px;
+    }
+
+    /* reveal (staggered via --i) */
+    .card.reveal{
+      pointer-events: none;
+      animation: revealUp .7s var(--hover-ease) forwards;
+      animation-delay: calc(var(--i, 0) * 80ms);
+    }
+    @keyframes revealUp { to { opacity:1; transform: translateY(0) scale(1) } }
+
+    /* resting state after reveal */
+    .card.ready{ opacity:1; --liftY:0px; --scaleCard:1; --rx:0deg; --ry:0deg; transform: translateY(0) scale(1); }
+
+    .title{ margin:0 0 8px; font:700 20px/1.15 "Orbitron", sans-serif; letter-spacing:.4px; color:#fff }
+    .desc{ margin:0 0 14px; color:#c9c9c9; font-size:15px }
+
+    /* ==== POP OUT EFFECTS ==== */
+
+    /* 1) Pop when the CARD itself is hovered */
+    .card.ready:hover{
+      --liftY: var(--lift);
+      --scaleCard: var(--scale);
+      box-shadow: var(--glow-strong);
+      position: relative;
+      z-index: 3;        /* <- ensures it visually sits above neighbors */
+    }
+
+    /* 2) Pop when the BUTTON is hovered (and green text) */
+    .card.ready:has(.btn:hover){
+      --liftY: var(--lift);
+      --scaleCard: var(--scale);
+      box-shadow: var(--glow-strong);
+      position: relative;
+      z-index: 3;
+    }
+    .card.ready:has(.btn:hover) .title,
+    .card.ready:has(.btn:hover) .desc{ color: var(--green) }
+    .card.ready:has(.btn:hover)::before{ opacity:.55 }
+
+    /* Fallback if :has() unsupported — JS adds this */
+    .card.ready.hovering-btn{
+      --liftY: var(--lift);
+      --scaleCard: var(--scale);
+      box-shadow: var(--glow-strong);
+      position: relative;
+      z-index: 3;
+    }
+    .card.ready.hovering-btn .title,
+    .card.ready.hovering-btn .desc{ color: var(--green) }
+    .card.ready.hovering-btn::before{ opacity:.55 }
+
+    /* buttons */
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+      width:100%; padding:12px 14px; font-weight:800; letter-spacing:.3px;
+      border-radius:12px; text-decoration:none;
+      border:1px solid rgba(255,255,255,.06); position:relative; isolation:isolate;
+      transition: transform .22s ease, filter .25s ease, box-shadow .35s ease, background .35s ease, border-color .35s ease;
+      overflow:hidden;
+      background: linear-gradient(180deg, #1a1c20, #121317);
+      color:#e7e7e7;
+    }
+    .btn:hover{ filter: brightness(1.05); box-shadow: 0 10px 30px rgba(255,255,255,.08) }
+
+    .btn.red    { background: linear-gradient(180deg, var(--red), var(--red-2)); color:#0b0b0b }
+    .btn.green  { background: linear-gradient(180deg, var(--green), var(--green-2)); color:#0b0b0b }
+    .btn.orange { background: linear-gradient(180deg, var(--orange), var(--orange-2)); color:#0b0b0b }
+    .btn.blue   { background: linear-gradient(180deg, var(--blue), var(--blue-2)); color:#0b0b0b }
+    .btn.yellow { background: linear-gradient(180deg, var(--yellow), var(--yellow-2)); color:#0b0b0b }
+
+    /* subtle shine */
+    .btn::after{
+      content:""; position:absolute; inset:-40% -10%; border-radius:inherit;
+      background: linear-gradient(110deg, rgba(255,255,255,.00) 0%, rgba(255,255,255,.18) 55%, rgba(255,255,255,.00) 100%);
+      transform: translateX(-120%);
+      transition: transform .7s ease;
+      will-change: transform;
+      pointer-events:none; mix-blend-mode: screen;
+    }
+    .btn:hover::after{ transform: translateX(0) }
+
+    /* ripple */
+    .btn .ripple{
+      position:absolute; border-radius:50%; transform:scale(0);
+      background: rgba(255,255,255,.35); pointer-events:none;
+      animation: ripple .6s ease-out forwards;
+      filter: blur(1px);
+    }
+    @keyframes ripple{ to { transform: scale(10); opacity: 0 } }
+
+    footer{
+      text-align: center;
+      max-width:1100px; margin: 12px auto 36px; padding: 0 20px;
+      color:#61d156; font-size:14px; border-top:1px dashed var(--border); padding-top:14px
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .backdrop, .stars, .stars2{ animation: none }
+      .card, .btn{ transition: none }
+      .card.reveal{ animation: none; opacity:1; transform:none }
+    }
+
+
+    /* (keep your existing .card rule as-is) */
+
+
+/* ✅ POP when the CARD itself is hovered — works even during reveal */
+.card:hover{
+  /* kill reveal instantly so hover wins */
+  animation: none !important;
+
+  /* slow, smooth lift using your vars */
+  --liftY: var(--lift);
+  --scaleCard: var(--scale);
+
+  transform:
+    translateY(var(--liftY))
+    scale(var(--scaleCard))
+    rotateX(var(--rx))
+    rotateY(var(--ry));
+
+  box-shadow: var(--glow-strong);
+  position: relative;
+  z-index: 3;
+}
+
+/* ✅ POP when the BUTTON is hovered (and only then make text green) */
+.card:has(.btn:hover){
+  animation: none !important; /* same reason */
+  --liftY: var(--lift);
+  --scaleCard: var(--scale);
+  transform:
+    translateY(var(--liftY))
+    scale(var(--scaleCard))
+    rotateX(var(--rx))
+    rotateY(var(--ry));
+  box-shadow: var(--glow-strong);
+  position: relative;
+  z-index: 3;
+}
+.card:has(.btn:hover) .title,
+.card:has(.btn:hover) .desc{ color: var(--green) }
+
+/* Fallback for browsers without :has() — JS toggles this */
+.card.hovering-btn{
+  animation: none !important;
+  --liftY: var(--lift);
+  --scaleCard: var(--scale);
+  transform:
+    translateY(var(--liftY))
+    scale(var(--scaleCard))
+    rotateX(var(--rx))
+    rotateY(var(--ry));
+  box-shadow: var(--glow-strong);
+  position: relative;
+  z-index: 3;
+}
+.card.hovering-btn .title,
+.card.hovering-btn .desc{ color: var(--green) }
+
+
+/* --- Comments --- */
+.comments{
+  max-width:1100px; margin: 8px auto 48px; padding: 0 20px;
+  border-top:1px dashed var(--border); padding-top:18px;
+}
+.comments-title{
+  margin: 0 0 12px; font: 800 22px/1.1 "Orbitron", sans-serif;
+  letter-spacing:.4px;
+}
+.comment-form .row{ display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap }
+.comment-form input[type="text"],
+.comment-form textarea{
+  flex:1 1 280px; background:#121214; color:#e7e7e7; border:1px solid rgba(255,255,255,.08);
+  border-radius:12px; padding:10px 12px; outline:none; transition:border-color .2s ease, box-shadow .2s ease;
+}
+.comment-form textarea{ flex:999 1 540px; min-height:92px; resize:vertical }
+.comment-form input:focus, .comment-form textarea:focus{
+  border-color: rgba(98,240,163,.5); box-shadow: 0 0 0 3px rgba(98,240,163,.16);
+}
+.comment-form .actions{ width:100%; justify-content:space-between; margin-top:10px }
+.comment-form .remember{ color:var(--muted); display:flex; gap:8px; align-items:center; font-size:14px }
+.comment-form .hint{ margin:.25rem 0 0; color:var(--muted); font-size:13px }
+
+.comment-list{ list-style:none; margin:16px 0 0; padding:0; display:grid; gap:10px }
+.comment{
+  background: linear-gradient(180deg, #141417, #0e0f12);
+  border:1px solid rgba(255,255,255,.06); border-radius: var(--radius); padding:14px;
+  box-shadow: 0 10px 22px rgba(0,0,0,.22);
+}
+.comment .meta{ display:flex; gap:10px; align-items:center; margin-bottom:8px; color:#c9c9c9; font-size:13px }
+.comment .name{ font-weight:800; color:#fff }
+.comment .date{ color:var(--muted) }
+.comment .text{ margin:0; white-space:pre-wrap; word-wrap:break-word }
+.comment .actions{ margin-top:10px; display:flex; gap:10px }
+.comment .tiny-btn{
+  font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.08);
+  background:#1a1c20; color:#ddd; cursor:pointer;
+}
+.comment .tiny-btn:hover{ filter:brightness(1.1) }
+
+/* Accessibility helpers */
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0 }
+
+
+
+
+  </style>
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="stars2" aria-hidden="true"></div>
+
+  <div id="topbar" class="sticky-shadow">
+    <span class="chip">accroo.site</span>
+    <span class="chip">free tools</span>
+    <span class="chip">open downloads</span>
+  </div>
+
+  <header>
+    <h1 class="brand">accroo — downloads</h1>
+    <p class="tag">Free tools & personal projects. Pick a project to see versions and start downloading.</p>
+    <div class="toolbar">
+      <span class="chip">No ads</span>
+      <span class="chip">Direct links</span>
+      <span class="chip">Lightweight</span>
+    </div>
+  </header>
+
+  <main class="grid" id="grid">
+    <article class="card" style="--i:0">
+      <h3 class="title">TwinD</h3>
+      <p class="desc">Dual-window helper / utility with quick layouts.</p>
+      <a class="btn red" href="/TwinD/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:1">
+      <h3 class="title">Music Cutter</h3>
+      <p class="desc">Trim audio fast. Simple UI, lossless options.</p>
+      <a class="btn green" href="/Music_Cutter/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:2">
+      <h3 class="title">Youtube-Automator</h3>
+      <p class="desc">Automate fetching / parsing tasks for Olamovies workflows.</p>
+      <a class="btn orange" href="/Automator/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:3">
+      <h3 class="title">AppLister</h3>
+      <p class="desc">Generate lists of installed apps with export.</p>
+      <a class="btn blue" href="/AppLister/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:4">
+      <h3 class="title">Encrypt / Decrypt Files</h3>
+      <p class="desc">Fast AES-GCM file encryptor / decryptor.</p>
+      <a class="btn red" href="/ED Files/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:5">
+      <h3 class="title">Multi Images → Audio</h3>
+      <p class="desc">Turn multiple images into an audio stream/file.</p>
+      <a class="btn green" href="/Multi_Audio/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:6">
+      <h3 class="title">Multi ICO Converter</h3>
+      <p class="desc">Batch convert PNG/SVG → multi-size .ico files.</p>
+      <a class="btn orange" href="/Multi_ICO/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:7">
+      <h3 class="title">Cursor Hider</h3>
+      <p class="desc">Auto-hide cursor when typing or watching media.</p>
+      <a class="btn blue" href="/Cursor Hider/">View versions & download →</a>
+    </article>
+
+    <article class="card" style="--i:8">
+      <h3 class="title">Olamovies-Automator</h3>
+      <p class="desc">Helps download series of videos or files from olamovies.</p>
+      <a class="btn yellow" href="/Olamovies_Automator/">View versions & download →</a>
+    </article>
+
+  </main>
+
+
+<section id="comments" class="comments">
+  <h2 class="comments-title">Comments</h2>
+
+  <form id="commentForm" class="comment-form" autocomplete="on">
+    <div class="row">
+      <label class="sr-only" for="c-name">Name (optional)</label>
+      <input id="c-name" name="name" type="text" maxlength="40"
+             placeholder="Guest (optional)" />
+      <label class="sr-only" for="c-text">Your comment</label>
+      <textarea id="c-text" name="text" rows="3" maxlength="500"
+                placeholder="Write your comment…"></textarea>
+    </div>
+    <div class="row actions">
+      <label class="remember">
+        <input id="c-remember" type="checkbox" checked />
+        Remember my name
+      </label>
+      <button class="btn green" type="submit">Post comment</button>
+    </div>
+    <p class="hint">Max 500 characters. Be nice ✨</p>
+  </form>
+
+  <ul id="commentList" class="comment-list" aria-live="polite"></ul>
+</section>
+
+
+  <footer>
+    Tip: If You encounter with any issues, please leave a comment here. <br>
+    Thank you for visiting.
+  </footer>
+
+  <script>
+  // ---- Scratch-off on hover for .btn ----
+  document.querySelectorAll('.btn').forEach(btn => {
+    let canvas, ctx, rect, last = null, raf;
+    const R = 7;                 // scratch radius (px) – tweak this
+    const STEP = 2;               // spacing of scratch dots
+
+    function ensureCanvas(){
+      if (canvas) return;
+      rect = btn.getBoundingClientRect();
+      canvas = document.createElement('canvas');
+      canvas.width  = Math.ceil(rect.width);
+      canvas.height = Math.ceil(rect.height);
+      canvas.className = 'scratch-canvas';
+      btn.appendChild(canvas);
+      ctx = canvas.getContext('2d');
+
+      // paint the coating (same vibe as your button surface)
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(17,18,23,0.92)'; // dark film
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // from now on, erase with circles
+      ctx.globalCompositeOperation = 'destination-out';
+    }
+
+    function scratchAt(x, y){
+      ctx.beginPath();
+      ctx.arc(x, y, R, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    function onMove(e){
+      if (!canvas) return;
+      const r = btn.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+
+      if (!last){
+        last = {x,y};
+        scratchAt(x, y);
+        return;
+      }
+
+      // draw along the path so it looks continuous/“scratched”
+      const dx = x - last.x, dy = y - last.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0){
+        const steps = Math.ceil(dist / STEP);
+        for (let i=1;i<=steps;i++){
+          const nx = last.x + dx * (i/steps);
+          const ny = last.y + dy * (i/steps);
+          scratchAt(nx, ny);
+        }
+      }
+      last = {x,y};
+    }
+
+    function onEnter(){
+      ensureCanvas();
+      last = null;
+      // make sure the film is fully opaque when you come back
+      canvas.classList.remove('scratch-fade-out');
+    }
+
+    function onLeave(){
+      if (!canvas) return;
+      last = null;
+      // fade film out then remove (so it doesn’t “store” scratches)
+      canvas.classList.add('scratch-fade-out');
+      setTimeout(() => {
+        canvas?.remove();
+        canvas = ctx = null;
+      }, 250);
+    }
+
+    // hook it up
+    btn.addEventListener('mouseenter', onEnter);
+    btn.addEventListener('mousemove', onMove);
+    btn.addEventListener('mouseleave', onLeave);
+  });
+</script>
+
+
+
+  <script>
+    // Sticky topbar
+    const topbar = document.getElementById('topbar');
+    addEventListener('scroll', () => {
+      const y = scrollY || document.documentElement.scrollTop;
+      topbar.classList.toggle('show', y > 24);
+    }, {passive:true});
+
+    // Reveal-on-scroll (staggered) -> switch to .ready
+    const cards = [...document.querySelectorAll('.card')];
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const el = e.target;
+          el.classList.add('reveal');
+          el.addEventListener('animationend', () => {
+            el.classList.remove('reveal');
+            el.classList.add('ready'); // lets hover win
+          }, { once: true });
+          io.unobserve(el);
+        }
+      });
+    }, {threshold: .08});
+    cards.forEach(c => io.observe(c));
+
+    // :has() fallback — lift parent while button hovered/focused
+    document.querySelectorAll('.card .btn').forEach(btn => {
+      const parent = btn.closest('.card');
+      btn.addEventListener('mouseenter', () => parent.classList.add('hovering-btn'));
+      btn.addEventListener('mouseleave', () => parent.classList.remove('hovering-btn'));
+      btn.addEventListener('focus', () => parent.classList.add('hovering-btn'));
+      btn.addEventListener('blur', () => parent.classList.remove('hovering-btn'));
+    });
+
+    // Magnetic tilt
+    const maxTilt = 7;
+    cards.forEach(card => {
+      let rafId = null;
+      function onMove(e){
+        const r = card.getBoundingClientRect();
+        const cx = r.left + r.width/2, cy = r.top + r.height/2;
+        const dx = (e.clientX - cx) / (r.width/2);
+        const dy = (e.clientY - cy) / (r.height/2);
+        const ry = (dx * maxTilt).toFixed(2) + 'deg';
+        const rx = (-dy * maxTilt).toFixed(2) + 'deg';
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(()=>{
+          card.style.setProperty('--rx', rx);
+          card.style.setProperty('--ry', ry);
+          card.classList.add('tilted');
+        });
+      }
+      function resetTilt(){
+        if (rafId) cancelAnimationFrame(rafId);
+        card.classList.remove('tilted');
+        card.style.removeProperty('--rx');
+        card.style.removeProperty('--ry');
+      }
+      card.addEventListener('mousemove', onMove);
+      card.addEventListener('mouseleave', resetTilt);
+    });
+
+    // Button ripple
+    document.querySelectorAll('.btn').forEach(btn=>{
+      btn.addEventListener('click', e=>{
+        const r = btn.getBoundingClientRect();
+        const x = e.clientX - r.left, y = e.clientY - r.top;
+        const el = document.createElement('span');
+        el.className = 'ripple';
+        el.style.left = (x-8)+'px';
+        el.style.top  = (y-8)+'px';
+        el.style.width = el.style.height = Math.max(r.width, r.height)/3 + 'px';
+        btn.appendChild(el);
+        el.addEventListener('animationend', ()=> el.remove());
+      });
+    });
+  </script>
+
+
+
+<script type="module">
+(() => {
+  const form      = document.getElementById('commentForm');
+  const list      = document.getElementById('commentList');
+  const nameInput = document.getElementById('c-name');
+  const textInput = document.getElementById('c-text');
+  const remember  = document.getElementById('c-remember');
+
+  const FUNCTION_URL = "https://cpceutbefmvjdbpyyjyf.supabase.co/functions/v1/quick-action";
+
+  const GOLD = "#FFD700";
+  const MIN_SECONDS_BETWEEN_POSTS = 10;
+  const BAD_WORDS = ["fuck","shit","bitch","asshole","dick","cock","porn"];
+  const URL_RE = /\b(?:https?:\/\/|www\.)[^\s]+|\b[a-z0-9.-]+\.(?:com|net|org|io|co|info|xyz|app|dev|site|gg|ru|uk|in|bd)(?:\/[^\s]*)?/gi;
+  const STORAGE_LAST_POST_TS = "comments:lastPostTs";
+
+  const page = location.pathname || "/";
+  const savedName = localStorage.getItem('comment:name');
+  if (savedName) nameInput.value = savedName;
+
+  // ===== pagination config/state =====
+  const INITIAL_COUNT = 3;
+  const LOAD_STEP     = 8;
+  let shown = 0;            // how many items currently rendered
+  let total = 0;            // total items on server for this page
+  let currentComments = []; // last fetched window (sanitized)
+  let loading = false;
+
+  // track what we've rendered to avoid duplicates when server repeats page 1
+  const renderedIds = new Set();
+
+  // --- Load More button setup (start fully hidden) ---
+  const loadMoreBtn = document.getElementById('loadMoreBtn') || (() => {
+    const b = document.createElement('button');
+    b.id = 'loadMoreBtn';
+    b.type = 'button';
+    b.textContent = 'Load more';
+    Object.assign(b.style, {
+      display:'none',
+      marginTop:'10px', padding:'.6rem .9rem', borderRadius:'10px',
+      border:'1px solid #262628', background:'#151515', color:'#fff',
+      fontWeight:'700', cursor:'pointer'
+    });
+    b.addEventListener('mouseenter', () => b.style.borderColor = '#ff3b3b');
+    b.addEventListener('mouseleave', () => b.style.borderColor = '#262628');
+    list.parentNode.insertBefore(b, list.nextSibling);
+    return b;
+  })();
+
+  function setLoadMoreVisible(show) {
+    loadMoreBtn.hidden = !show;
+    loadMoreBtn.style.display = show ? 'inline-block' : 'none';
+  }
+  setLoadMoreVisible(false);
+
+  loadMoreBtn.addEventListener('click', async () => {
+    try {
+      loadMoreBtn.disabled = true;
+
+      // First try: ask server for the next page
+      let { items } = await listComments(page, shown, LOAD_STEP);
+
+      // Remove anything we already rendered (server might resend page 1)
+      let unique = items.filter(c => !renderedIds.has(c.id));
+
+      // Fallback: if we still have nothing new but we *know* there are remaining items,
+      // fetch from 0..(shown+LOAD_STEP) and take the unseen tail.
+      const remaining = (Number(total) || 0) - (Number(shown) || 0);
+      if (unique.length === 0 && remaining > 0) {
+        const { items: upTo } = await listComments(page, 0, shown + LOAD_STEP);
+        unique = upTo.filter(c => !renderedIds.has(c.id)).slice(0, LOAD_STEP);
+      }
+
+      if (unique.length === 0) {
+        updateLoadMoreVisibility(); // will hide if nothing remains
+        return;
+      }
+
+      const safe = unique.map(c => ({ ...c, text: displaySanitize(c.text) }));
+      renderAppend(safe);
+      shown += safe.length;
+      updateLoadMoreVisibility();
+
+    } catch (e) {
+      console.warn(e);
+      toast('Could not load more comments.');
+    } finally {
+      loadMoreBtn.disabled = false;
+    }
+  });
+
+  // initial load + lightweight periodic refresh of visible slice
+  refresh();
+  const refreshTimer = setInterval(() => refresh(), 8000);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = (nameInput.value || '').trim() || 'Guest';
+    const text = (textInput.value || '').trim();
+
+    if (!text) return toast('Type something first.');
+    if (text.length > 500) return toast('Please keep it under 500 characters.');
+
+    // device rate-limit
+    const lastTs = Number(localStorage.getItem(STORAGE_LAST_POST_TS) || 0);
+    const now = Date.now();
+    if (now - lastTs < MIN_SECONDS_BETWEEN_POSTS * 1000) {
+      const remain = Math.ceil((MIN_SECONDS_BETWEEN_POSTS*1000 - (now - lastTs))/1000);
+      return toast(`Slow down—wait ${remain}s.`);
+    }
+
+    if (hasLink(text)) return toast("Links aren't allowed.");
+
+    const norm = normalize(text);
+    if (currentComments.some(c => normalize(c.text) === norm)) {
+      return toast('Duplicate comment blocked.');
+    }
+
+    if (remember.checked) localStorage.setItem('comment:name', name);
+
+    // optimistic render
+    const tempId = 'tmp-' + now;
+    appendOne({
+      id: tempId,
+      name,
+      text: displaySanitize(text),
+      inserted_at: new Date().toISOString(),
+      is_creator: false
+    });
+    shown += 1;
+    updateLoadMoreVisibility();
+
+    try {
+      const res = await fetch(FUNCTION_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ page, name, text })
+      });
+
+      if (!res.ok) {
+        const raw = await res.text();
+        let msg; try { msg = JSON.parse(raw).error; } catch { msg = raw; }
+        throw new Error(msg || `HTTP ${res.status}`);
+      }
+
+      localStorage.setItem(STORAGE_LAST_POST_TS, String(now));
+      textInput.value = '';
+      await refresh(true);
+    } catch (err) {
+      const el = list.querySelector(`[data-id="${tempId}"]`);
+      if (el) { el.remove(); renderedIds.delete(tempId); shown = Math.max(0, shown - 1); }
+      updateLoadMoreVisibility();
+
+      const msg = String(err?.message || '');
+      if (msg === "LINKS_NOT_ALLOWED") return toast("Links aren't allowed.");
+      if (msg === "REPEAT_PROFANITY")  return toast("Second profanity from this IP blocked (24h).");
+      if (msg === "DUPLICATE_COMMENT") return toast("Duplicate comment blocked.");
+      return toast(msg || 'Could not post. Try again.');
+    }
+  });
+
+  async function refresh(scrollToEnd=false) {
+    if (loading) return;
+    loading = true;
+    try {
+      const want = Math.max(shown || 0, INITIAL_COUNT);
+      const { items, total: t } = await listComments(page, 0, want);
+      total = Number(t) || 0;
+
+      // Trim locally to ensure only initial window is shown
+      const windowed = items.slice(0, want);
+
+      currentComments = windowed.map(c => ({ ...c, text: displaySanitize(c.text) }));
+      renderReplace(currentComments);
+      shown = currentComments.length;
+      updateLoadMoreVisibility();
+
+      if (scrollToEnd) liScrollToEnd();
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Server may return array or {items,total}. We normalize.
+  async function listComments(pagePath, offset=0, limit=20) {
+    const url = new URL(FUNCTION_URL);
+    url.searchParams.set("page", pagePath);
+    url.searchParams.set("offset", String(Math.max(0, offset)));
+    url.searchParams.set("limit",  String(Math.max(1, limit)));
+
+    const res = await fetch(url.toString(), { method: "GET" });
+    if (!res.ok) {
+      console.warn('List failed', res.status, await res.text());
+      return { items: [], total: 0 };
+    }
+    const data = await res.json();
+    if (Array.isArray(data)) return { items: data, total: data.length };
+    const items = Array.isArray(data.items) ? data.items : [];
+    const total = Number(data.total) || items.length;
+    return { items, total };
+  }
+
+  function updateLoadMoreVisibility() {
+    const totalNum = Number(total) || 0;
+    const shownNum = Number(shown) || 0;
+    const remaining = totalNum - shownNum;
+    const shouldShow = totalNum > 3 && remaining > 0;
+    setLoadMoreVisible(shouldShow);
+    if (shouldShow) {
+      loadMoreBtn.textContent = `Load ${Math.min(LOAD_STEP, remaining)} more`;
+    }
+  }
+
+  function renderReplace(items) {
+    list.innerHTML = '';
+    renderedIds.clear();
+    for (const c of items) appendOne(c);
+  }
+  function renderAppend(items) {
+    for (const c of items) appendOne(c);
+  }
+
+  function appendOne(c) {
+    if (renderedIds.has(c.id)) return; // safety
+    const li = document.createElement('li');
+    li.className = 'comment';
+    li.dataset.id = c.id;
+    li.innerHTML = `
+      <div class="meta">
+        <span class="name"></span>
+        <span class="date">${formatDate(c.inserted_at)}</span>
+      </div>
+      <p class="text"></p>
+    `;
+    const nameEl = li.querySelector('.name');
+    const textEl = li.querySelector('.text');
+
+    nameEl.textContent = c.name ?? 'Guest';
+    if (c.is_creator === true) {
+      nameEl.style.color = GOLD;
+      nameEl.title = "Site creator";
+    }
+
+    textEl.textContent = c.text;
+    list.appendChild(li);
+    renderedIds.add(c.id);
+  }
+
+  function liScrollToEnd() {
+    const last = list.lastElementChild;
+    if (last) last.scrollIntoView({ behavior:'smooth', block:'end' });
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'
+    });
+  }
+
+  // helpers
+  function normalize(s){ return s.toLowerCase().replace(/\s+/g,' ').trim(); }
+  function hasLink(s){ URL_RE.lastIndex = 0; return URL_RE.test(s); }
+  function maskLinks(s){ URL_RE.lastIndex = 0; return s.replace(URL_RE, "[link removed]"); }
+  function censorBadWords(s){
+    let out = s;
+    for (const w of BAD_WORDS){
+      const re = new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}\\b`, "gi");
+      out = out.replace(re, m => "*".repeat(m.length));
+    }
+    return out;
+  }
+  function displaySanitize(s){ return maskLinks(censorBadWords(s)); }
+
+  // tiny toast
+  let toastEl;
+  function toast(msg){
+    if (!toastEl){
+      toastEl = document.createElement('div');
+      Object.assign(toastEl.style, {
+        position:'fixed', left:'50%', bottom:'24px', transform:'translateX(-50%)',
+        background:'#121214', color:'#e7e7e7', border:'1px solid rgba(255,255,255,.08)',
+        padding:'10px 14px', borderRadius:'12px', boxShadow:'0 8px 24px rgba(0,0,0,.35)',
+        zIndex:9999, opacity:'0', transition:'opacity .2s ease'
+      });
+      document.body.appendChild(toastEl);
+    }
+    console.log('[toast]', msg);
+    toastEl.textContent = msg;
+    requestAnimationFrame(()=>{ toastEl.style.opacity = '1'; });
+    setTimeout(()=> toastEl.style.opacity = '0', 2200);
+  }
+
+  window.addEventListener('beforeunload', () => clearInterval(refreshTimer));
+})();
+</script>
+
+
+
+<script>
+(() => {
+  // ===== CONFIG =====
+  const CHECK_INTERVAL_MS = 500;
+  const ARM_AFTER_MS = 1200;               // wait after load to avoid startup jitter
+  const CONSECUTIVE_HITS_TO_TRIGGER = 3;   // require repeated confirmations
+  const WIDTH_GAP_THRESH  = 180;
+  const HEIGHT_GAP_THRESH = 220;
+
+  // ===== action: close/blank tab (best effort) =====
+  let closing = false;
+  function onDevtoolsDetected() {
+    if (closing) return;
+    closing = true;
+
+    try { window.close(); } catch {}
+
+    try {
+      window.opener = null;
+      const w = window.open('', '_self');
+      if (w) w.close();
+    } catch {}
+
+    // last resort: blank
+    try {
+      document.documentElement.innerHTML = "";
+      document.documentElement.style.pointerEvents = "none";
+      document.documentElement.style.background = "#000";
+    } catch {}
+
+    setTimeout(() => { try { window.close(); } catch {} }, 0);
+  }
+
+  // ===== block context menu + shortcuts (unchanged) =====
+  const block = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
+
+  window.addEventListener("contextmenu", block, { capture:true });
+  window.addEventListener("auxclick", (e) => { if (e.button === 1) block(e); }, { capture:true });
+
+  window.addEventListener("keydown", (e) => {
+    const k = e.key?.toLowerCase?.() || "";
+    const code = e.code || "";
+    const ctrl = e.ctrlKey || e.metaKey, shift = e.shiftKey;
+
+    if (k === "f12" || code === "F12") return block(e);
+    if (ctrl && shift && (k === "i" || code === "KeyI")) return block(e);
+    if (ctrl && shift && (k === "j" || code === "KeyJ")) return block(e);
+    if (ctrl && shift && (k === "c" || code === "KeyC")) return block(e);
+    if (ctrl && !shift && (k === "u" || code === "KeyU")) return block(e);
+    if (ctrl && shift && (k === "k" || code === "KeyK")) return block(e);
+    if (shift && (k === "f10" || code === "F10")) return block(e);
+    if (code === "ContextMenu") return block(e);
+  }, { capture:true });
+
+  // ===== safer DevTools detection =====
+  let getterTripped = false;
+  (function consoleGetterProbe(){
+    const probe = { get _(){ getterTripped = true; return 1; } };
+    setTimeout(() => { try { console.log(probe); } catch {} }, 100);
+  })();
+
+  function activeAndVisible() {
+    // do not check when minimized, backgrounded, or unfocused
+    if (document.visibilityState !== 'visible') return false;
+    if (!document.hasFocus()) return false;
+    // when minimized, many browsers report innerWidth/innerHeight = 0 → ignore
+    if ((window.innerWidth|0) === 0 || (window.innerHeight|0) === 0) return false;
+    return true;
+  }
+
+  function sizeHeuristic() {
+    // only evaluate in active/visible state
+    if (!activeAndVisible()) return false;
+
+    const outerW = window.outerWidth  || 0;
+    const outerH = window.outerHeight || 0;
+    const innerW = window.innerWidth  || 0;
+    const innerH = window.innerHeight || 0;
+
+    // safety: if outer is also 0 (rare), skip
+    if (outerW === 0 || outerH === 0) return false;
+
+    const wGap = Math.abs(outerW - innerW);
+    const hGap = Math.abs(outerH - innerH);
+
+    const sideDock  = wGap > WIDTH_GAP_THRESH  && (innerW / outerW) < 0.92;
+    const bottomDock= hGap > HEIGHT_GAP_THRESH && (innerH / outerH) < 0.92;
+
+    return sideDock || bottomDock;
+  }
+
+  let hits = 0;
+  const startAt = performance.now();
+
+  function checkDevtools() {
+    const armed = (performance.now() - startAt) >= ARM_AFTER_MS;
+
+    // if tab not active/visible, reset and skip
+    if (!activeAndVisible()) {
+      hits = 0;
+      getterTripped = false;
+      return;
+    }
+
+    const openLikely = getterTripped || sizeHeuristic();
+    if (armed && openLikely) {
+      hits++;
+      if (hits >= CONSECUTIVE_HITS_TO_TRIGGER) {
+        onDevtoolsDetected();
+      }
+    } else {
+      // decay/reset on quiet cycles
+      hits = 0;
+      if (!openLikely) getterTripped = false;
+    }
+  }
+
+  const interval = setInterval(checkDevtools, CHECK_INTERVAL_MS);
+  window.addEventListener("resize", checkDevtools, { passive:true });
+  window.addEventListener("focus",  checkDevtools, { passive:true });
+  document.addEventListener("visibilitychange", checkDevtools, { passive:true });
+
+  // initial (will not fire because not armed yet)
+  checkDevtools();
+})();
+</script>
+
+
+
+</body>
+</html>

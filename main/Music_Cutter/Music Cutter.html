@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Music Cutter — Downloads</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#0b0b0b; --text:#fff; --muted:#cfcfcf; --border:#2a2a2a;
+      --accent:#ff3b3b;        /* existing red */
+      --orange:#ff8a3b;        /* text color when hovering Download */
+      --orange-2:#ffb36e;
+      --green:#2bdc7b;         /* button color when hovering Download */
+      --green-2:#62f0a3;
+    }
+
+    /* base */
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:22px; background:var(--bg); color:var(--text);
+      font-family:"Rajdhani",system-ui,-apple-system,Segoe UI,Roboto,sans-serif
+    }
+    a{ color:#fff; text-decoration:none }
+
+    .wrap{ max-width:980px; margin:0 auto }
+    .top{ display:flex; align-items:center; gap:10px; margin-bottom:12px }
+    .back{ border:1px solid var(--border); padding:8px 12px; border-radius:12px; background:#111213 }
+    h1{ margin:.25rem 0 1rem; font:700 clamp(26px,4vw,42px) "Orbitron", sans-serif; letter-spacing:.3px }
+
+    .panel{
+      background:#121214; border:1px solid var(--border); border-radius:16px; padding:14px
+    }
+
+    /* version row (card) */
+    .ver{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:12px 14px; background:linear-gradient(180deg,#18181b,#121214);
+      border:1px solid var(--border); border-radius:12px;
+
+      /* smooth lift baseline */
+      transform: translateY(0) scale(1);
+      transition:
+        transform .75s cubic-bezier(.16,1,.3,1),
+        box-shadow .75s cubic-bezier(.16,1,.3,1),
+        border-color .35s ease,
+        color .25s ease;
+      will-change: transform, box-shadow;
+    }
+    .ver + .ver{ margin-top:10px }
+
+    .meta{ color:var(--muted) }
+
+    .btn{
+      border:1px solid var(--border); border-radius:10px; padding:9px 12px; font-weight:800;
+      background:#17181a;
+      transition: transform .2s ease, filter .25s ease, box-shadow .35s ease, background .35s ease, border-color .3s ease, color .25s ease;
+    }
+    .btn:hover{ filter: brightness(1.04); box-shadow:0 10px 30px rgba(255,255,255,.08) }
+
+    /* ===== HOVER BEHAVIOR TRIGGERED BY THE BUTTON =====
+       Modern browsers: parent .ver reacts when its .btn is hovered */
+    .ver:has(.btn:hover){
+      transform: translateY(-10px) scale(1.03);
+      border-color:#3a3a3a;
+      box-shadow:
+        0 24px 60px rgba(0,0,0,.45),
+        0 10px 26px rgba(255,138,59,.18); /* subtle orange glow */
+      position:relative; z-index:1;
+    }
+    .ver:has(.btn:hover) strong,
+    .ver:has(.btn:hover) .meta{
+      color: var(--orange);
+    }
+    .ver:has(.btn:hover) .btn{
+      background: linear-gradient(180deg, var(--green), var(--green-2));
+      color:#0b0b0b;
+      border-color: transparent;
+    }
+
+    /* ===== Fallback class if :has() isn’t supported ===== */
+    .ver.hovering-btn{
+      transform: translateY(-10px) scale(1.03);
+      border-color:#3a3a3a;
+      box-shadow:
+        0 24px 60px rgba(0,0,0,.45),
+        0 10px 26px rgba(255,138,59,.18);
+      position:relative; z-index:1;
+    }
+    .ver.hovering-btn strong,
+    .ver.hovering-btn .meta{ color:var(--orange) }
+    .ver.hovering-btn .btn{
+      background: linear-gradient(180deg, var(--green), var(--green-2));
+      color:#0b0b0b;
+      border-color: transparent;
+    }
+
+    .note{ color:#d82c2c; margin-top:12px }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="back" href="/">← Back</a>
+      <span style="color:#aaa">Project</span>
+    </div>
+
+    <h1>Music Cutter — Versions</h1>
+
+    <div class="panel">
+
+      <!-- v3 -->
+      <div class="ver">
+        <div>
+          <strong>v1.0.0</strong>
+          <div class="meta">Released: 2025-10-13 · Notes: Initial release</div>
+        </div>
+        <a class="btn" href="https://github.com/Accroon/Music-Cutter/releases/download/v1.0.0.1/setup.exe">Download</a>
+      </div>
+    </div>
+
+        <p class="note">
+      Tip: After downloading read the found readme.<br>
+	Thank you for downloading.
+ </p>
+  </div>
+
+  </div>
+
+  <script>
+    // Fallback for browsers without :has(): lift parent while the button is hovered/focused
+    document.querySelectorAll('.ver .btn').forEach(btn => {
+      const row = btn.closest('.ver');
+      btn.addEventListener('mouseenter', () => row.classList.add('hovering-btn'));
+      btn.addEventListener('mouseleave', () => row.classList.remove('hovering-btn'));
+      btn.addEventListener('focus', () => row.classList.add('hovering-btn'));
+      btn.addEventListener('blur', () => row.classList.remove('hovering-btn'));
+    });
+  </script>
+
+  <script>
+(() => {
+  // ===== CONFIG =====
+  const CHECK_INTERVAL_MS = 500;
+  const ARM_AFTER_MS = 1200;               // wait after load to avoid startup jitter
+  const CONSECUTIVE_HITS_TO_TRIGGER = 3;   // require repeated confirmations
+  const WIDTH_GAP_THRESH  = 180;
+  const HEIGHT_GAP_THRESH = 220;
+
+  // ===== action: close/blank tab (best effort) =====
+  let closing = false;
+  function onDevtoolsDetected() {
+    if (closing) return;
+    closing = true;
+
+    try { window.close(); } catch {}
+
+    try {
+      window.opener = null;
+      const w = window.open('', '_self');
+      if (w) w.close();
+    } catch {}
+
+    // last resort: blank
+    try {
+      document.documentElement.innerHTML = "";
+      document.documentElement.style.pointerEvents = "none";
+      document.documentElement.style.background = "#000";
+    } catch {}
+
+    setTimeout(() => { try { window.close(); } catch {} }, 0);
+  }
+
+  // ===== block context menu + shortcuts (unchanged) =====
+  const block = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
+
+  window.addEventListener("contextmenu", block, { capture:true });
+  window.addEventListener("auxclick", (e) => { if (e.button === 1) block(e); }, { capture:true });
+
+  window.addEventListener("keydown", (e) => {
+    const k = e.key?.toLowerCase?.() || "";
+    const code = e.code || "";
+    const ctrl = e.ctrlKey || e.metaKey, shift = e.shiftKey;
+
+    if (k === "f12" || code === "F12") return block(e);
+    if (ctrl && shift && (k === "i" || code === "KeyI")) return block(e);
+    if (ctrl && shift && (k === "j" || code === "KeyJ")) return block(e);
+    if (ctrl && shift && (k === "c" || code === "KeyC")) return block(e);
+    if (ctrl && !shift && (k === "u" || code === "KeyU")) return block(e);
+    if (ctrl && shift && (k === "k" || code === "KeyK")) return block(e);
+    if (shift && (k === "f10" || code === "F10")) return block(e);
+    if (code === "ContextMenu") return block(e);
+  }, { capture:true });
+
+  // ===== safer DevTools detection =====
+  let getterTripped = false;
+  (function consoleGetterProbe(){
+    const probe = { get _(){ getterTripped = true; return 1; } };
+    setTimeout(() => { try { console.log(probe); } catch {} }, 100);
+  })();
+
+  function activeAndVisible() {
+    // do not check when minimized, backgrounded, or unfocused
+    if (document.visibilityState !== 'visible') return false;
+    if (!document.hasFocus()) return false;
+    // when minimized, many browsers report innerWidth/innerHeight = 0 → ignore
+    if ((window.innerWidth|0) === 0 || (window.innerHeight|0) === 0) return false;
+    return true;
+  }
+
+  function sizeHeuristic() {
+    // only evaluate in active/visible state
+    if (!activeAndVisible()) return false;
+
+    const outerW = window.outerWidth  || 0;
+    const outerH = window.outerHeight || 0;
+    const innerW = window.innerWidth  || 0;
+    const innerH = window.innerHeight || 0;
+
+    // safety: if outer is also 0 (rare), skip
+    if (outerW === 0 || outerH === 0) return false;
+
+    const wGap = Math.abs(outerW - innerW);
+    const hGap = Math.abs(outerH - innerH);
+
+    const sideDock  = wGap > WIDTH_GAP_THRESH  && (innerW / outerW) < 0.92;
+    const bottomDock= hGap > HEIGHT_GAP_THRESH && (innerH / outerH) < 0.92;
+
+    return sideDock || bottomDock;
+  }
+
+  let hits = 0;
+  const startAt = performance.now();
+
+  function checkDevtools() {
+    const armed = (performance.now() - startAt) >= ARM_AFTER_MS;
+
+    // if tab not active/visible, reset and skip
+    if (!activeAndVisible()) {
+      hits = 0;
+      getterTripped = false;
+      return;
+    }
+
+    const openLikely = getterTripped || sizeHeuristic();
+    if (armed && openLikely) {
+      hits++;
+      if (hits >= CONSECUTIVE_HITS_TO_TRIGGER) {
+        onDevtoolsDetected();
+      }
+    } else {
+      // decay/reset on quiet cycles
+      hits = 0;
+      if (!openLikely) getterTripped = false;
+    }
+  }
+
+  const interval = setInterval(checkDevtools, CHECK_INTERVAL_MS);
+  window.addEventListener("resize", checkDevtools, { passive:true });
+  window.addEventListener("focus",  checkDevtools, { passive:true });
+  document.addEventListener("visibilitychange", checkDevtools, { passive:true });
+
+  // initial (will not fire because not armed yet)
+  checkDevtools();
+})();
+</script>
+
+</body>
+</html>
