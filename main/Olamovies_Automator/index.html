@@ -256,15 +256,16 @@
 </script>
 <script>
 async function getSignedUrl(path, minutes = 10) {
-  const res = await fetch('/sign', {
+  const res = await fetch('https://dl.accroo.site/sign', {   // << absolute URL
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ path, minutes })
   });
   if (!res.ok) throw new Error('Signing failed: ' + res.status);
   const data = await res.json();
-  return data.url;
+  return data.url; // https://dl.accroo.site/stream?path=...&exp=...&sig=...
 }
+
 
 document.getElementById('dl-automator').addEventListener('click', async (e) => {
   e.preventDefault();
@@ -286,6 +287,7 @@ document.getElementById('dl-automator').addEventListener('click', async (e) => {
 
 </body>
 </html>
+
 
 
 
