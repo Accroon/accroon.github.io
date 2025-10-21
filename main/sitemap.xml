@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Home -->
+  <url>
+    <loc>https://accroo.site/</loc>
+    <lastmod>2025-10-21</lastmod>
+  </url>
+
+  <!-- App folders (each must contain index.html) -->
+  <url><loc>https://accroo.site/AppLister/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/Automator/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/Cursor%20Hider/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/Downloader/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/ED%20Files/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/Multi_Audio/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/Multi_ICO/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/Music_Cutter/</loc><lastmod>2025-10-21</lastmod></url>
+  <url><loc>https://accroo.site/Olamovies_Automator/</loc><lastmod>2025-10-21</lastmod></url>
+</urlset>
