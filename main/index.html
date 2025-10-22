@@ -1119,27 +1119,33 @@
 (() => {
   const buttons = document.querySelectorAll(' .btn');
 
-  const SPRING = 0.12;      // how strongly it chases the target
-  const FRICTION = 0.82;    // how fast it slows down
-  const MAX_DISP = 120;     // max drag distance in px (soft clamp)
-  const MAX_SQUISH = 0.18;  // max stretch amount (0.18 = 18%)
-  const CLICK_DRAG_THRESHOLD = 6; // prevent accidental clicks if dragged
+  const SPRING = 0.12;      // same as before
+  const FRICTION = 0.82;
+  const MAX_DISP = 120;
+  const MAX_SQUISH = 0.18;
+  const CLICK_DRAG_THRESHOLD = 6;
 
   buttons.forEach(btn => {
+    // Enable fast taps and remove highlight on mobile
+    btn.style.touchAction = 'manipulation';
+    btn.style.webkitTapHighlightColor = 'transparent';
+    btn.style.userSelect = 'none';
+
     let dragging = false;
     let moved = false;
 
-    // physics state
-    let x = 0, y = 0;       // current position
-    let vx = 0, vy = 0;     // current velocity
-    let dx = 0, dy = 0;     // desired (target) offset
+    let x = 0, y = 0;
+    let vx = 0, vy = 0;
+    let dx = 0, dy = 0;
     let raf = 0;
 
     function localFromEvent(e){
       const r = btn.getBoundingClientRect();
+      const cx = e.clientX ?? (e.touches?.[0]?.clientX || 0);
+      const cy = e.clientY ?? (e.touches?.[0]?.clientY || 0);
       return {
-        x: (e.clientX ?? (e.touches?.[0]?.clientX || 0)) - (r.left + r.width/2),
-        y: (e.clientY ?? (e.touches?.[0]?.clientY || 0)) - (r.top + r.height/2),
+        x: cx - (r.left + r.width/2),
+        y: cy - (r.top + r.height/2)
       };
     }
 
@@ -1147,7 +1153,6 @@
       const targetX = dragging ? dx : 0;
       const targetY = dragging ? dy : 0;
 
-      // spring to target
       vx += (targetX - x) * SPRING;
       vy += (targetY - y) * SPRING;
       vx *= FRICTION;
@@ -1155,28 +1160,23 @@
       x += vx;
       y += vy;
 
-      // soft clamp so it never goes crazy far
       const m = Math.hypot(x, y);
       if (m > MAX_DISP){
         const s = MAX_DISP / m;
         x *= s; y *= s;
       }
 
-      // squish amount from displacement + speed
       const speed = Math.hypot(vx, vy);
       const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y) / 220) + (speed / 2200));
 
-      // rotate → scale (anisotropic) → rotate back
       const ang = Math.atan2(y, x);
       const tr = `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1 + squish}, ${1 - squish}) rotate(${-ang}rad)`;
 
       btn.style.transform = tr;
 
-      // keep animating until settled
       if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1 || Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1 || dragging){
         raf = requestAnimationFrame(animate);
       } else {
-        // fully settled → clear transform
         btn.style.transform = '';
         btn.classList.remove('elastic-active');
         raf = 0;
@@ -1193,11 +1193,9 @@
       dx = p.x; dy = p.y;
       x = y = vx = vy = 0;
 
-      btn.setPointerCapture?.(e.pointerId);
       if (!raf) raf = requestAnimationFrame(animate);
 
-      // stop text selection / scroll
-      e.preventDefault();
+      // ❌ Don’t preventDefault here — allows tap to register click on mobile
     }
 
     function onPointerMove(e){
@@ -1208,11 +1206,10 @@
     }
 
     function onPointerUp(){
-      dragging = false; // springs back in the RAF loop
-      // don't remove elastic-active here; wait until settled for nicer feel
+      dragging = false;
+      // wait until settled
     }
 
-    // Prevent navigation if it was a drag, not a click
     function onClick(e){
       if (moved){
         e.preventDefault();
@@ -1220,11 +1217,10 @@
       }
     }
 
-    // Pointer events = great for mouse + touch + pen
-    btn.addEventListener('pointerdown', onPointerDown);
-    btn.addEventListener('pointermove', onPointerMove);
-    btn.addEventListener('pointerup', onPointerUp);
-    btn.addEventListener('pointercancel', onPointerUp);
+    btn.addEventListener('pointerdown', onPointerDown, { passive: true });
+    btn.addEventListener('pointermove', onPointerMove, { passive: true });
+    btn.addEventListener('pointerup', onPointerUp, { passive: true });
+    btn.addEventListener('pointercancel', onPointerUp, { passive: true });
     btn.addEventListener('click', onClick, true);
   });
 })();
@@ -1232,8 +1228,10 @@
 
 
 
+
 </body>
 </html>
+
 
 
 
