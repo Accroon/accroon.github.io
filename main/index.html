@@ -1119,60 +1119,47 @@
 (() => {
   const buttons = document.querySelectorAll(' .btn');
 
-  const SPRING = 0.12;      // same as before
+  const SPRING = 0.12;
   const FRICTION = 0.82;
   const MAX_DISP = 120;
   const MAX_SQUISH = 0.18;
   const CLICK_DRAG_THRESHOLD = 6;
 
   buttons.forEach(btn => {
-    // Enable fast taps and remove highlight on mobile
+    // fast taps, no highlight
     btn.style.touchAction = 'manipulation';
     btn.style.webkitTapHighlightColor = 'transparent';
     btn.style.userSelect = 'none';
 
-    let dragging = false;
-    let moved = false;
+    let dragging = false, moved = false;
+    let x = 0, y = 0, vx = 0, vy = 0, dx = 0, dy = 0, raf = 0;
 
-    let x = 0, y = 0;
-    let vx = 0, vy = 0;
-    let dx = 0, dy = 0;
-    let raf = 0;
+    // if the button is (or sits inside) a link, we’ll navigate it manually on tap
+    const anchor = btn.matches('a') ? btn : btn.closest('a');
 
     function localFromEvent(e){
       const r = btn.getBoundingClientRect();
       const cx = e.clientX ?? (e.touches?.[0]?.clientX || 0);
       const cy = e.clientY ?? (e.touches?.[0]?.clientY || 0);
-      return {
-        x: cx - (r.left + r.width/2),
-        y: cy - (r.top + r.height/2)
-      };
+      return { x: cx - (r.left + r.width/2), y: cy - (r.top + r.height/2) };
     }
 
     function animate(){
       const targetX = dragging ? dx : 0;
       const targetY = dragging ? dy : 0;
 
-      vx += (targetX - x) * SPRING;
-      vy += (targetY - y) * SPRING;
-      vx *= FRICTION;
-      vy *= FRICTION;
-      x += vx;
-      y += vy;
+      vx += (targetX - x) * SPRING; vy += (targetY - y) * SPRING;
+      vx *= FRICTION;               vy *= FRICTION;
+      x += vx;                      y += vy;
 
       const m = Math.hypot(x, y);
-      if (m > MAX_DISP){
-        const s = MAX_DISP / m;
-        x *= s; y *= s;
-      }
+      if (m > MAX_DISP){ const s = MAX_DISP / m; x *= s; y *= s; }
 
       const speed = Math.hypot(vx, vy);
       const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y) / 220) + (speed / 2200));
-
       const ang = Math.atan2(y, x);
-      const tr = `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1 + squish}, ${1 - squish}) rotate(${-ang}rad)`;
-
-      btn.style.transform = tr;
+      btn.style.transform =
+        `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1 + squish}, ${1 - squish}) rotate(${-ang}rad)`;
 
       if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1 || Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1 || dragging){
         raf = requestAnimationFrame(animate);
@@ -1184,7 +1171,7 @@
     }
 
     function onPointerDown(e){
-      if (e.button !== undefined && e.button !== 0) return; // left click only
+      if (e.button !== undefined && e.button !== 0) return; // left/primary only
       dragging = true;
       moved = false;
       btn.classList.add('elastic-active');
@@ -1193,9 +1180,12 @@
       dx = p.x; dy = p.y;
       x = y = vx = vy = 0;
 
+      btn.setPointerCapture?.(e.pointerId);
       if (!raf) raf = requestAnimationFrame(animate);
 
-      // ❌ Don’t preventDefault here — allows tap to register click on mobile
+      // keep your original preventDefault for the exact feel (but it kills native click on mobile)
+      // we’ll manually navigate on pointerup if it wasn't a drag
+      e.preventDefault();
     }
 
     function onPointerMove(e){
@@ -1205,11 +1195,26 @@
       if (!moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) moved = true;
     }
 
-    function onPointerUp(){
-      dragging = false;
-      // wait until settled
+    function onPointerUp(e){
+      dragging = false; // springs back in RAF
+
+      // If it was a TAP (not dragged), synthesize navigation manually
+      if (!moved && anchor) {
+        const href = anchor.getAttribute('href');
+        if (href && href !== '#') {
+          const target = anchor.getAttribute('target');
+          // release capture first
+          try { btn.releasePointerCapture?.(e.pointerId); } catch {}
+          // navigate in the same gesture frame (works on iOS)
+          setTimeout(() => {
+            if (target === '_blank') window.open(href, '_blank', 'noopener');
+            else window.location.assign(href);
+          }, 0);
+        }
+      }
     }
 
+    // Block navigation only if it was a drag
     function onClick(e){
       if (moved){
         e.preventDefault();
@@ -1217,10 +1222,10 @@
       }
     }
 
-    btn.addEventListener('pointerdown', onPointerDown, { passive: true });
-    btn.addEventListener('pointermove', onPointerMove, { passive: true });
-    btn.addEventListener('pointerup', onPointerUp, { passive: true });
-    btn.addEventListener('pointercancel', onPointerUp, { passive: true });
+    btn.addEventListener('pointerdown', onPointerDown);
+    btn.addEventListener('pointermove', onPointerMove);
+    btn.addEventListener('pointerup', onPointerUp);
+    btn.addEventListener('pointercancel', onPointerUp);
     btn.addEventListener('click', onClick, true);
   });
 })();
@@ -1228,9 +1233,9 @@
 
 
 
-
 </body>
 </html>
+
 
 
 
