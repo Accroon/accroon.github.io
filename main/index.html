@@ -1115,64 +1115,54 @@
 (() => {
   const buttons = document.querySelectorAll('.btn');
 
-  const SPRING = 0.12;      // how strongly it chases the target
-  const FRICTION = 0.82;    // how fast it slows down
-  const MAX_DISP = 120;     // max drag distance in px (soft clamp)
-  const MAX_SQUISH = 0.18;  // max stretch amount (0.18 = 18%)
-  const CLICK_DRAG_THRESHOLD = 6; // prevent accidental clicks if dragged
+  const SPRING = 0.12;
+  const FRICTION = 0.82;
+  const MAX_DISP = 120;
+  const MAX_SQUISH = 0.18;
+  const CLICK_DRAG_THRESHOLD = 6;
+
+  // 👇 helps mobile taps (no 300ms delay, no scroll-block unless dragging)
+  buttons.forEach(b => {
+    b.style.touchAction = 'manipulation';
+    b.style.webkitTapHighlightColor = 'transparent';
+    b.style.userSelect = 'none';
+  });
 
   buttons.forEach(btn => {
     let dragging = false;
     let moved = false;
 
-    // physics state
-    let x = 0, y = 0;       // current position
-    let vx = 0, vy = 0;     // current velocity
-    let dx = 0, dy = 0;     // desired (target) offset
+    let x = 0, y = 0, vx = 0, vy = 0, dx = 0, dy = 0;
     let raf = 0;
 
     function localFromEvent(e){
       const r = btn.getBoundingClientRect();
-      return {
-        x: (e.clientX ?? (e.touches?.[0]?.clientX || 0)) - (r.left + r.width/2),
-        y: (e.clientY ?? (e.touches?.[0]?.clientY || 0)) - (r.top + r.height/2),
-      };
+      const cx = e.clientX ?? (e.touches?.[0]?.clientX ?? 0);
+      const cy = e.clientY ?? (e.touches?.[0]?.clientY ?? 0);
+      return { x: cx - (r.left + r.width/2), y: cy - (r.top + r.height/2) };
     }
 
     function animate(){
       const targetX = dragging ? dx : 0;
       const targetY = dragging ? dy : 0;
 
-      // spring to target
       vx += (targetX - x) * SPRING;
       vy += (targetY - y) * SPRING;
-      vx *= FRICTION;
-      vy *= FRICTION;
-      x += vx;
-      y += vy;
+      vx *= FRICTION; vy *= FRICTION;
+      x += vx; y += vy;
 
-      // soft clamp so it never goes crazy far
       const m = Math.hypot(x, y);
-      if (m > MAX_DISP){
-        const s = MAX_DISP / m;
-        x *= s; y *= s;
-      }
+      if (m > MAX_DISP){ const s = MAX_DISP / m; x *= s; y *= s; }
 
-      // squish amount from displacement + speed
       const speed = Math.hypot(vx, vy);
       const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y) / 220) + (speed / 2200));
-
-      // rotate → scale (anisotropic) → rotate back
       const ang = Math.atan2(y, x);
-      const tr = `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1 + squish}, ${1 - squish}) rotate(${-ang}rad)`;
+      btn.style.transform =
+        `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1+squish}, ${1-squish}) rotate(${-ang}rad)`;
 
-      btn.style.transform = tr;
-
-      // keep animating until settled
       if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1 || Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1 || dragging){
         raf = requestAnimationFrame(animate);
       } else {
-        // fully settled → clear transform
         btn.style.transform = '';
         btn.classList.remove('elastic-active');
         raf = 0;
@@ -1180,7 +1170,9 @@
     }
 
     function onPointerDown(e){
-      if (e.button !== undefined && e.button !== 0) return; // left click only
+      // left-click or primary touch/pen only
+      if (e.button !== undefined && e.button !== 0) return;
+
       dragging = true;
       moved = false;
       btn.classList.add('elastic-active');
@@ -1189,26 +1181,36 @@
       dx = p.x; dy = p.y;
       x = y = vx = vy = 0;
 
-      btn.setPointerCapture?.(e.pointerId);
+      // DO NOT preventDefault here — allows mobile tap to produce a click
+      if (e.pointerId !== undefined && btn.setPointerCapture) {
+        try { btn.setPointerCapture(e.pointerId); } catch {}
+      }
       if (!raf) raf = requestAnimationFrame(animate);
-
-      // stop text selection / scroll
-      e.preventDefault();
     }
 
     function onPointerMove(e){
       if (!dragging) return;
       const p = localFromEvent(e);
       dx = p.x; dy = p.y;
-      if (!moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) moved = true;
+
+      // Once we cross threshold, treat it as a drag and prevent page scroll
+      if (!moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD){
+        moved = true;
+        // Now it's a drag: prevent scroll/selection for this gesture
+        e.preventDefault?.();
+      }
     }
 
-    function onPointerUp(){
-      dragging = false; // springs back in the RAF loop
-      // don't remove elastic-active here; wait until settled for nicer feel
+    function onPointerUp(e){
+      dragging = false;
+      // release pointer capture if taken
+      if (e.pointerId !== undefined && btn.releasePointerCapture) {
+        try { btn.releasePointerCapture(e.pointerId); } catch {}
+      }
+      // class removed when spring settles (in animate)
     }
 
-    // Prevent navigation if it was a drag, not a click
+    // Only block navigation when it *was* a drag
     function onClick(e){
       if (moved){
         e.preventDefault();
@@ -1216,9 +1218,8 @@
       }
     }
 
-    // Pointer events = great for mouse + touch + pen
     btn.addEventListener('pointerdown', onPointerDown);
-    btn.addEventListener('pointermove', onPointerMove);
+    btn.addEventListener('pointermove', onPointerMove, { passive:false }); // must be non-passive to preventDefault on drag
     btn.addEventListener('pointerup', onPointerUp);
     btn.addEventListener('pointercancel', onPointerUp);
     btn.addEventListener('click', onClick, true);
@@ -1226,8 +1227,10 @@
 })();
 </script>
 
+
 </body>
 </html>
+
 
 
 
