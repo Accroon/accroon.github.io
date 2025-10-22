@@ -1117,47 +1117,29 @@
 
 <script>
 (() => {
-  const buttons = document.querySelectorAll('.btn');
+  const buttons = document.querySelectorAll(' .btn');
 
-  // === original feel ===
-  const SPRING = 0.12;
-  const FRICTION = 0.82;
-  const MAX_DISP = 120;
-  const MAX_SQUISH = 0.18;
-  const CLICK_DRAG_THRESHOLD = 6; // px
-
-  // long-press to drag on touch
-  const isCoarse = matchMedia('(pointer: coarse)').matches;
-  const HOLD_TO_DRAG_MS = isCoarse ? 2000 : 0; // 2s on phones, 0 on desktop
+  const SPRING = 0.12;      // how strongly it chases the target
+  const FRICTION = 0.82;    // how fast it slows down
+  const MAX_DISP = 120;     // max drag distance in px (soft clamp)
+  const MAX_SQUISH = 0.18;  // max stretch amount (0.18 = 18%)
+  const CLICK_DRAG_THRESHOLD = 6; // prevent accidental clicks if dragged
 
   buttons.forEach(btn => {
-    // mobile niceties
-    btn.style.touchAction = 'manipulation';
-    btn.style.webkitTapHighlightColor = 'transparent';
-    btn.style.userSelect = 'none';
-
-    let dragging = false;         // actively dragging/animating
-    let suppressClick = false;    // cancel navigation after a drag
-    let armed = false;            // long-press reached (only on touch)
-    let holdTimer = 0;
+    let dragging = false;
+    let moved = false;
 
     // physics state
-    let x = 0, y = 0;
-    let vx = 0, vy = 0;
-    let dx = 0, dy = 0;
+    let x = 0, y = 0;       // current position
+    let vx = 0, vy = 0;     // current velocity
+    let dx = 0, dy = 0;     // desired (target) offset
     let raf = 0;
-
-    // for pre-drag jitter/threshold
-    let startX = 0, startY = 0;
 
     function localFromEvent(e){
       const r = btn.getBoundingClientRect();
-      const cx = e.clientX ?? (e.touches?.[0]?.clientX || 0);
-      const cy = e.clientY ?? (e.touches?.[0]?.clientY || 0);
-      return { 
-        x: cx - (r.left + r.width/2),
-        y: cy - (r.top + r.height/2),
-        cx, cy
+      return {
+        x: (e.clientX ?? (e.touches?.[0]?.clientX || 0)) - (r.left + r.width/2),
+        y: (e.clientY ?? (e.touches?.[0]?.clientY || 0)) - (r.top + r.height/2),
       };
     }
 
@@ -1165,114 +1147,108 @@
       const targetX = dragging ? dx : 0;
       const targetY = dragging ? dy : 0;
 
+      // spring to target
       vx += (targetX - x) * SPRING;
       vy += (targetY - y) * SPRING;
-      vx *= FRICTION; vy *= FRICTION;
-      x += vx; y += vy;
+      vx *= FRICTION;
+      vy *= FRICTION;
+      x += vx;
+      y += vy;
 
+      // soft clamp so it never goes crazy far
       const m = Math.hypot(x, y);
-      if (m > MAX_DISP){ const s = MAX_DISP / m; x *= s; y *= s; }
+      if (m > MAX_DISP){
+        const s = MAX_DISP / m;
+        x *= s; y *= s;
+      }
 
+      // squish amount from displacement + speed
       const speed = Math.hypot(vx, vy);
-      const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y)/220) + (speed/2200));
-      const ang = Math.atan2(y, x);
-      btn.style.transform =
-        `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1+squish}, ${1-squish}) rotate(${-ang}rad)`;
+      const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y) / 220) + (speed / 2200));
 
+      // rotate → scale (anisotropic) → rotate back
+      const ang = Math.atan2(y, x);
+      const tr = `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1 + squish}, ${1 - squish}) rotate(${-ang}rad)`;
+
+      btn.style.transform = tr;
+
+      // keep animating until settled
       if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1 || Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1 || dragging){
         raf = requestAnimationFrame(animate);
       } else {
+        // fully settled → clear transform
         btn.style.transform = '';
         btn.classList.remove('elastic-active');
         raf = 0;
       }
     }
 
-    function startDrag(e){
-      if (dragging) return;
+    function onPointerDown(e){
+      if (e.button !== undefined && e.button !== 0) return; // left click only
       dragging = true;
-      suppressClick = true;     // this was a drag, so don't navigate
+      moved = false;
       btn.classList.add('elastic-active');
+
       const p = localFromEvent(e);
       dx = p.x; dy = p.y;
       x = y = vx = vy = 0;
+
+      btn.setPointerCapture?.(e.pointerId);
       if (!raf) raf = requestAnimationFrame(animate);
-    }
 
-    function clearHoldTimer(){
-      if (holdTimer){ clearTimeout(holdTimer); holdTimer = 0; }
-    }
-
-    function onPointerDown(e){
-      if (e.button !== undefined && e.button !== 0) return; // primary only
-
-      const p = localFromEvent(e);
-      startX = p.cx; startY = p.cy;
-      suppressClick = false;
-      armed = (HOLD_TO_DRAG_MS === 0); // on desktop: armed immediately; on touch: false
-
-      // on touch, arm dragging only after long-press
-      if (!armed) {
-        holdTimer = setTimeout(() => { armed = true; }, HOLD_TO_DRAG_MS);
-      }
-
-      // IMPORTANT: no preventDefault here -> taps still generate click on mobile
+      // stop text selection / scroll
+      e.preventDefault();
     }
 
     function onPointerMove(e){
+      if (!dragging) return;
       const p = localFromEvent(e);
-      const dist = Math.hypot(p.cx - startX, p.cy - startY);
-
-      // If we’re already dragging, update target and stop page scroll while dragging
-      if (dragging) {
-        dx = p.x; dy = p.y;
-        if (e.cancelable) e.preventDefault(); // prevent page scroll during drag
-        return;
-      }
-
-      // Not dragging yet
-      // If pointer moved a *lot* before arming, consider it a scroll/jitter: do nothing.
-      if (!armed) return;
-
-      // Armed (long-press elapsed) + moved beyond threshold -> begin drag
-      if (dist > CLICK_DRAG_THRESHOLD) {
-        startDrag(e);
-        if (e.cancelable) e.preventDefault();
-      }
+      dx = p.x; dy = p.y;
+      if (!moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) moved = true;
     }
 
-    function onPointerUp(e){
-      clearHoldTimer();
-
-      if (dragging) {
-        dragging = false; // let spring settle in RAF
-        // keep suppressClick=true so the following click won’t navigate
-        return;
-      }
-
-      // Not dragging: this was a tap/click -> allow native navigation
-      suppressClick = false;
+    function onPointerUp(){
+      dragging = false; // springs back in the RAF loop
+      // don't remove elastic-active here; wait until settled for nicer feel
     }
 
+    // Prevent navigation if it was a drag, not a click
     function onClick(e){
-      // cancel navigation only if a drag actually happened
-      if (suppressClick){
+      if (moved){
         e.preventDefault();
         e.stopPropagation();
       }
     }
 
-    btn.addEventListener('pointerdown', onPointerDown, { passive: true });
-    btn.addEventListener('pointermove', onPointerMove, { passive: false }); // can prevent scroll when dragging
-    btn.addEventListener('pointerup', onPointerUp, { passive: true });
-    btn.addEventListener('pointercancel', onPointerUp, { passive: true });
+    // Pointer events = great for mouse + touch + pen
+    btn.addEventListener('pointerdown', onPointerDown);
+    btn.addEventListener('pointermove', onPointerMove);
+    btn.addEventListener('pointerup', onPointerUp);
+    btn.addEventListener('pointercancel', onPointerUp);
     btn.addEventListener('click', onClick, true);
+  });
+})();
+</script>
+
+
+<script>
+(() => {
+  // Normalize paths so /Games and /Games/index.html compare equal
+  const norm = p => p.replace(/\/index\.html?$/,'/');
+
+  const here = norm(location.pathname);
+  document.querySelectorAll('.toolbar a.btn').forEach(a => {
+    const linkPath = norm(new URL(a.getAttribute('href'), location.href).pathname);
+    if (linkPath === here) {
+      a.setAttribute('aria-current', 'page');
+    }
   });
 })();
 </script>
 
 </body>
 </html>
+
 
 
 
