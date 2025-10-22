@@ -1115,31 +1115,37 @@
 (() => {
   const buttons = document.querySelectorAll('.btn');
 
-  const SPRING = 0.12;
-  const FRICTION = 0.82;
-  const MAX_DISP = 120;
-  const MAX_SQUISH = 0.18;
-  const CLICK_DRAG_THRESHOLD = 6;
-
-  // 👇 helps mobile taps (no 300ms delay, no scroll-block unless dragging)
+  // Make taps fast & clean on mobile
   buttons.forEach(b => {
     b.style.touchAction = 'manipulation';
     b.style.webkitTapHighlightColor = 'transparent';
     b.style.userSelect = 'none';
   });
 
+  const SPRING = 0.12;
+  const FRICTION = 0.82;
+  const MAX_DISP = 120;
+  const MAX_SQUISH = 0.18;
+
+  // Scale the drag threshold by DPR so tiny finger jitter doesn't count as "moved"
+  const BASE_THRESHOLD = 10; // px at DPR=1
+  const CLICK_DRAG_THRESHOLD = Math.max(10, Math.round(BASE_THRESHOLD * (window.devicePixelRatio || 1)));
+
   buttons.forEach(btn => {
     let dragging = false;
     let moved = false;
 
-    let x = 0, y = 0, vx = 0, vy = 0, dx = 0, dy = 0;
-    let raf = 0;
+    // physics
+    let x = 0, y = 0, vx = 0, vy = 0, dx = 0, dy = 0, raf = 0;
+
+    // for move distance tracking
+    let startClientX = 0, startClientY = 0;
 
     function localFromEvent(e){
       const r = btn.getBoundingClientRect();
       const cx = e.clientX ?? (e.touches?.[0]?.clientX ?? 0);
       const cy = e.clientY ?? (e.touches?.[0]?.clientY ?? 0);
-      return { x: cx - (r.left + r.width/2), y: cy - (r.top + r.height/2) };
+      return { x: cx - (r.left + r.width/2), y: cy - (r.top + r.height/2), cx, cy };
     }
 
     function animate(){
@@ -1157,6 +1163,7 @@
       const speed = Math.hypot(vx, vy);
       const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y) / 220) + (speed / 2200));
       const ang = Math.atan2(y, x);
+
       btn.style.transform =
         `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1+squish}, ${1-squish}) rotate(${-ang}rad)`;
 
@@ -1170,21 +1177,21 @@
     }
 
     function onPointerDown(e){
-      // left-click or primary touch/pen only
+      // primary only (touch/pen/mouse-left)
       if (e.button !== undefined && e.button !== 0) return;
+
+      const p = localFromEvent(e);
+      startClientX = p.cx;
+      startClientY = p.cy;
 
       dragging = true;
       moved = false;
       btn.classList.add('elastic-active');
 
-      const p = localFromEvent(e);
       dx = p.x; dy = p.y;
       x = y = vx = vy = 0;
 
-      // DO NOT preventDefault here — allows mobile tap to produce a click
-      if (e.pointerId !== undefined && btn.setPointerCapture) {
-        try { btn.setPointerCapture(e.pointerId); } catch {}
-      }
+      // IMPORTANT: do NOT preventDefault and do NOT pointer-capture here.
       if (!raf) raf = requestAnimationFrame(animate);
     }
 
@@ -1193,24 +1200,17 @@
       const p = localFromEvent(e);
       dx = p.x; dy = p.y;
 
-      // Once we cross threshold, treat it as a drag and prevent page scroll
-      if (!moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD){
-        moved = true;
-        // Now it's a drag: prevent scroll/selection for this gesture
-        e.preventDefault?.();
-      }
+      // just track distance; no preventDefault (keeps tap->click alive)
+      const dist = Math.hypot((p.cx - startClientX), (p.cy - startClientY));
+      if (!moved && dist > CLICK_DRAG_THRESHOLD) moved = true;
     }
 
-    function onPointerUp(e){
-      dragging = false;
-      // release pointer capture if taken
-      if (e.pointerId !== undefined && btn.releasePointerCapture) {
-        try { btn.releasePointerCapture(e.pointerId); } catch {}
-      }
-      // class removed when spring settles (in animate)
+    function onPointerUp(){
+      dragging = false; // spring back
+      // class removed when settled in animate()
     }
 
-    // Only block navigation when it *was* a drag
+    // Only cancel navigation at the very end if it was actually dragged
     function onClick(e){
       if (moved){
         e.preventDefault();
@@ -1218,10 +1218,10 @@
       }
     }
 
-    btn.addEventListener('pointerdown', onPointerDown);
-    btn.addEventListener('pointermove', onPointerMove, { passive:false }); // must be non-passive to preventDefault on drag
-    btn.addEventListener('pointerup', onPointerUp);
-    btn.addEventListener('pointercancel', onPointerUp);
+    btn.addEventListener('pointerdown', onPointerDown, { passive: true });
+    btn.addEventListener('pointermove', onPointerMove, { passive: true });
+    btn.addEventListener('pointerup', onPointerUp, { passive: true });
+    btn.addEventListener('pointercancel', onPointerUp, { passive: true });
     btn.addEventListener('click', onClick, true);
   });
 })();
@@ -1230,6 +1230,7 @@
 
 </body>
 </html>
+
 
 
 
