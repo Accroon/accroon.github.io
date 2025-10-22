@@ -247,6 +247,8 @@
       background: linear-gradient(180deg, #1a1c20, #121317);
       color:#e7e7e7;
       user-select:none;
+      user-drag: none;
+      -webkit-user-drag: none;
       touch-action:none;
       will-change: transform;
       touch-action: manipulation;
@@ -264,6 +266,7 @@
       cursor: grab;
     }
     .btn.elastic-active:active{ cursor: grabbing; }
+    btn.addEventListener('dragstart', e => e.preventDefault());
 
     /* subtle shine */
     .btn::after{
@@ -1257,6 +1260,7 @@
 </script>
 </body>
 </html>
+
 
 
 
