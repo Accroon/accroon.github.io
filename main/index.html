@@ -1113,7 +1113,7 @@
 
 <script>
 (() => {
-  const buttons = document.querySelectorAll('.btn');
+  const buttons = document.querySelectorAll(' .btn');
 
   // Make taps fast & clean on mobile
   buttons.forEach(b => {
@@ -1122,51 +1122,76 @@
     b.style.userSelect = 'none';
   });
 
-  const SPRING = 0.12;
-  const FRICTION = 0.82;
-  const MAX_DISP = 120;
-  const MAX_SQUISH = 0.18;
+  // ===== TUNING =====
+  const SPRING   = 0.16;     // stronger chase → snappier
+  const FRICTION = 0.86;     // a touch less friction → more glide
+  const MAX_DISP = 160;      // allow further travel
+  const MAX_SQUISH = 0.20;   // slightly more squish
 
-  // Scale the drag threshold by DPR so tiny finger jitter doesn't count as "moved"
+  // scale drag distance so small finger moves feel larger
+  const isTouch = matchMedia('(pointer: coarse)').matches;
+  const DPR = Math.max(1, window.devicePixelRatio || 1);
+  const DRAG_GAIN = isTouch ? 1.9 : 1.4;  // <— boost on mobile more
+
+  // DPI-aware click/drag split so taps still click
   const BASE_THRESHOLD = 10; // px at DPR=1
-  const CLICK_DRAG_THRESHOLD = Math.max(10, Math.round(BASE_THRESHOLD * (window.devicePixelRatio || 1)));
+  const CLICK_DRAG_THRESHOLD = Math.round(BASE_THRESHOLD * DPR);
 
   buttons.forEach(btn => {
     let dragging = false;
     let moved = false;
 
-    // physics
-    let x = 0, y = 0, vx = 0, vy = 0, dx = 0, dy = 0, raf = 0;
+    // physics state
+    let x = 0, y = 0;     // current position
+    let vx = 0, vy = 0;   // current velocity
+    let dx = 0, dy = 0;   // desired (target) offset
+    let raf = 0;
 
-    // for move distance tracking
+    // for move distance tracking (screen coords, not local)
     let startClientX = 0, startClientY = 0;
 
     function localFromEvent(e){
       const r = btn.getBoundingClientRect();
-      const cx = e.clientX ?? (e.touches?.[0]?.clientX ?? 0);
-      const cy = e.clientY ?? (e.touches?.[0]?.clientY ?? 0);
-      return { x: cx - (r.left + r.width/2), y: cy - (r.top + r.height/2), cx, cy };
+      const cx = e.clientX ?? (e.touches?.[0]?.clientX || 0);
+      const cy = e.clientY ?? (e.touches?.[0]?.clientY || 0);
+      // center-relative, then amplify
+      return {
+        x: (cx - (r.left + r.width/2)) * DRAG_GAIN,
+        y: (cy - (r.top  + r.height/2)) * DRAG_GAIN,
+        cx, cy
+      };
     }
 
     function animate(){
       const targetX = dragging ? dx : 0;
       const targetY = dragging ? dy : 0;
 
+      // spring to target
       vx += (targetX - x) * SPRING;
       vy += (targetY - y) * SPRING;
       vx *= FRICTION; vy *= FRICTION;
       x += vx; y += vy;
 
+      // soft clamp so it never goes crazy far
       const m = Math.hypot(x, y);
-      if (m > MAX_DISP){ const s = MAX_DISP / m; x *= s; y *= s; }
+      if (m > MAX_DISP){
+        const s = MAX_DISP / m;
+        x *= s; y *= s;
+      }
 
+      // squish amount from displacement + speed
       const speed = Math.hypot(vx, vy);
-      const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y) / 220) + (speed / 2200));
-      const ang = Math.atan2(y, x);
+      const squish = Math.min(
+        MAX_SQUISH,
+        (Math.hypot(x, y) / 200) + (speed / 1800)
+      );
 
+      // rotate → scale (anisotropic) → rotate back
+      const ang = Math.atan2(y, x);
       btn.style.transform =
         `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1+squish}, ${1-squish}) rotate(${-ang}rad)`;
 
+      // keep animating until settled
       if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1 || Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1 || dragging){
         raf = requestAnimationFrame(animate);
       } else {
@@ -1177,12 +1202,10 @@
     }
 
     function onPointerDown(e){
-      // primary only (touch/pen/mouse-left)
-      if (e.button !== undefined && e.button !== 0) return;
+      if (e.button !== undefined && e.button !== 0) return; // primary only
 
       const p = localFromEvent(e);
-      startClientX = p.cx;
-      startClientY = p.cy;
+      startClientX = p.cx; startClientY = p.cy;
 
       dragging = true;
       moved = false;
@@ -1191,7 +1214,7 @@
       dx = p.x; dy = p.y;
       x = y = vx = vy = 0;
 
-      // IMPORTANT: do NOT preventDefault and do NOT pointer-capture here.
+      // IMPORTANT: do NOT preventDefault or capture → keeps tap->click on mobile
       if (!raf) raf = requestAnimationFrame(animate);
     }
 
@@ -1200,17 +1223,17 @@
       const p = localFromEvent(e);
       dx = p.x; dy = p.y;
 
-      // just track distance; no preventDefault (keeps tap->click alive)
-      const dist = Math.hypot((p.cx - startClientX), (p.cy - startClientY));
+      // just track distance; no preventDefault (so taps still click)
+      const dist = Math.hypot(p.cx - startClientX, p.cy - startClientY);
       if (!moved && dist > CLICK_DRAG_THRESHOLD) moved = true;
     }
 
     function onPointerUp(){
       dragging = false; // spring back
-      // class removed when settled in animate()
+      // class removed once settled in animate()
     }
 
-    // Only cancel navigation at the very end if it was actually dragged
+    // Prevent navigation only if it was a drag
     function onClick(e){
       if (moved){
         e.preventDefault();
@@ -1228,8 +1251,10 @@
 </script>
 
 
+
 </body>
 </html>
+
 
 
 
