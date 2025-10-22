@@ -246,6 +246,9 @@
       overflow:hidden;
       background: linear-gradient(180deg, #1a1c20, #121317);
       color:#e7e7e7;
+      user-select:none;
+      touch-action:none;
+      will-change: transform;
     }
     .btn:hover{ filter: brightness(1.05); box-shadow: 0 10px 30px rgba(255,255,255,.08) }
 
@@ -254,6 +257,12 @@
     .btn.orange { background: linear-gradient(180deg, var(--orange), var(--orange-2)); color:#0b0b0b }
     .btn.blue   { background: linear-gradient(180deg, var(--blue), var(--blue-2)); color:#0b0b0b }
     .btn.yellow { background: linear-gradient(180deg, var(--yellow), var(--yellow-2)); color:#0b0b0b }
+
+    .btn.elastic-active{
+      transition: none !important;
+      cursor: grab;
+    }
+    .btn.elastic-active:active{ cursor: grabbing; }
 
     /* subtle shine */
     .btn::after{
@@ -1102,10 +1111,124 @@
 })();
 </script>
 
+<script>
+(() => {
+  const buttons = document.querySelectorAll('.btn');
 
+  const SPRING = 0.12;      // how strongly it chases the target
+  const FRICTION = 0.82;    // how fast it slows down
+  const MAX_DISP = 120;     // max drag distance in px (soft clamp)
+  const MAX_SQUISH = 0.18;  // max stretch amount (0.18 = 18%)
+  const CLICK_DRAG_THRESHOLD = 6; // prevent accidental clicks if dragged
+
+  buttons.forEach(btn => {
+    let dragging = false;
+    let moved = false;
+
+    // physics state
+    let x = 0, y = 0;       // current position
+    let vx = 0, vy = 0;     // current velocity
+    let dx = 0, dy = 0;     // desired (target) offset
+    let raf = 0;
+
+    function localFromEvent(e){
+      const r = btn.getBoundingClientRect();
+      return {
+        x: (e.clientX ?? (e.touches?.[0]?.clientX || 0)) - (r.left + r.width/2),
+        y: (e.clientY ?? (e.touches?.[0]?.clientY || 0)) - (r.top + r.height/2),
+      };
+    }
+
+    function animate(){
+      const targetX = dragging ? dx : 0;
+      const targetY = dragging ? dy : 0;
+
+      // spring to target
+      vx += (targetX - x) * SPRING;
+      vy += (targetY - y) * SPRING;
+      vx *= FRICTION;
+      vy *= FRICTION;
+      x += vx;
+      y += vy;
+
+      // soft clamp so it never goes crazy far
+      const m = Math.hypot(x, y);
+      if (m > MAX_DISP){
+        const s = MAX_DISP / m;
+        x *= s; y *= s;
+      }
+
+      // squish amount from displacement + speed
+      const speed = Math.hypot(vx, vy);
+      const squish = Math.min(MAX_SQUISH, (Math.hypot(x, y) / 220) + (speed / 2200));
+
+      // rotate → scale (anisotropic) → rotate back
+      const ang = Math.atan2(y, x);
+      const tr = `translate(${x}px, ${y}px) rotate(${ang}rad) scale(${1 + squish}, ${1 - squish}) rotate(${-ang}rad)`;
+
+      btn.style.transform = tr;
+
+      // keep animating until settled
+      if (Math.abs(x) > 0.1 || Math.abs(y) > 0.1 || Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1 || dragging){
+        raf = requestAnimationFrame(animate);
+      } else {
+        // fully settled → clear transform
+        btn.style.transform = '';
+        btn.classList.remove('elastic-active');
+        raf = 0;
+      }
+    }
+
+    function onPointerDown(e){
+      if (e.button !== undefined && e.button !== 0) return; // left click only
+      dragging = true;
+      moved = false;
+      btn.classList.add('elastic-active');
+
+      const p = localFromEvent(e);
+      dx = p.x; dy = p.y;
+      x = y = vx = vy = 0;
+
+      btn.setPointerCapture?.(e.pointerId);
+      if (!raf) raf = requestAnimationFrame(animate);
+
+      // stop text selection / scroll
+      e.preventDefault();
+    }
+
+    function onPointerMove(e){
+      if (!dragging) return;
+      const p = localFromEvent(e);
+      dx = p.x; dy = p.y;
+      if (!moved && Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) moved = true;
+    }
+
+    function onPointerUp(){
+      dragging = false; // springs back in the RAF loop
+      // don't remove elastic-active here; wait until settled for nicer feel
+    }
+
+    // Prevent navigation if it was a drag, not a click
+    function onClick(e){
+      if (moved){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+
+    // Pointer events = great for mouse + touch + pen
+    btn.addEventListener('pointerdown', onPointerDown);
+    btn.addEventListener('pointermove', onPointerMove);
+    btn.addEventListener('pointerup', onPointerUp);
+    btn.addEventListener('pointercancel', onPointerUp);
+    btn.addEventListener('click', onClick, true);
+  });
+})();
+</script>
 
 </body>
 </html>
+
 
 
 
